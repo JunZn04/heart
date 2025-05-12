@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>跳動愛心</title>
+    <style>
+        body {
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #FF99CC;
+            font-family: "Segoe Script", sans-serif;
+        }
+        #heartCanvas {
+            border: 1px solid #FF99CC;
+        }
+        .text {
+            position: absolute;
+            color: #FF99CC;
+            font-size: 28px;
+            font-family: "Segoe Script", sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="heartCanvas" width="640" height="480"></canvas>
+    <div class="text" style="text-align: center;">涂家瑜我愛你</div>
+
+    <script>
+        const CANVAS_WIDTH = 640;
+        const CANVAS_HEIGHT = 480;
+        const CANVAS_CENTER_X = CANVAS_WIDTH / 2;
+        const CANVAS_CENTER_Y = CANVAS_HEIGHT / 2;
+        const IMAGE_ENLARGE = 11;
+        const HEART_COLOR = "#FF99CC";
+        const rhythm_pattern = [150, 200, 160, 250, 300, 200];
+        let current_rhythm_index = 0;
+        const canvas = document.getElementById('heartCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 繪製心形的函數
+        function heartFunction(t, shrinkRatio = IMAGE_ENLARGE) {
+            let x = 16 * Math.pow(Math.sin(t), 3);
+            let y = -(13 * Math.cos(t) - 4 * Math.cos(2 * t) - 1.5 * Math.cos(3 * t) - 0.7 * Math.cos(4 * t));
+            x *= shrinkRatio;
+            y *= shrinkRatio;
+            x += CANVAS_CENTER_X;
+            y += CANVAS_CENTER_Y;
+            return { x: Math.round(x), y: Math.round(y) };
+        }
+
+        // 顯示跳動的愛心
+        class Heart {
+            constructor(generateFrame = 20) {
+                this._points = new Set();
+                this.allPoints = {};
+                this.generateFrame = generateFrame;
+                this.build(2000);
+                for (let frame = 0; frame < generateFrame; frame++) {
+                    this.calc(frame);
+                }
+            }
+
+            build(number) {
+                for (let i = 0; i < number; i++) {
+                    let t = Math.random() * 2 * Math.PI;
+                    let { x, y } = heartFunction(t);
+                    this._points.add(`${x},${y}`);
+                }
+            }
+
+            calcPosition(x, y, ratio) {
+                let force = 1 / Math.pow(Math.pow(x - CANVAS_CENTER_X, 2) + Math.pow(y - CANVAS_CENTER_Y, 2), 0.520);
+                let dx = ratio * force * (x - CANVAS_CENTER_X) + Math.random() * 2 - 1;
+                let dy = ratio * force * (y - CANVAS_CENTER_Y) + Math.random() * 2 - 1;
+                return [x - dx, y - dy];
+            }
+
+            calc(generateFrame) {
+                let ratio = 10 * this.curve(generateFrame / 10 * Math.PI);
+                let allPoints = [];
+
+                // 隨機分佈的光環粒子
+                let heartHaloPoint = new Set();
+                let haloNumber = Math.floor(3000 + 4000 * Math.abs(Math.pow(this.curve(generateFrame / 10 * Math.PI), 2)));
+                for (let i = 0; i < haloNumber; i++) {
+                    let x = Math.random() * CANVAS_WIDTH;  // 使粒子隨機分布在整個畫布上
+                    let y = Math.random() * CANVAS_HEIGHT;
+                    let size = [1, 2, 2][Math.floor(Math.random() * 3)];
+                    allPoints.push({ x, y, size });
+                }
+
+                // 內部光環粒子
+                for (let point of this._points) {
+                    let [x, y] = this.calcPosition(...point.split(',').map(Number), ratio);
+                    let size = Math.floor(Math.random() * 3) + 1;
+                    allPoints.push({ x, y, size });
+                }
+
+                this.allPoints[generateFrame] = allPoints;
+            }
+
+            render(ctx, renderFrame) {
+                for (let { x, y, size } of this.allPoints[renderFrame % this.generateFrame]) {
+                    ctx.fillStyle = HEART_COLOR;
+                    ctx.fillRect(x, y, size, size);
+                }
+            }
+
+            curve(p) {
+                return 2 * (2 * Math.sin(4 * p)) / (2 * Math.PI);
+            }
+        }
+
+        let heart = new Heart();
+
+        function draw() {
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            heart.render(ctx, frame);
+            let baseInterval = rhythm_pattern[current_rhythm_index % rhythm_pattern.length];
+            let jitter = Math.floor(Math.random() * 101) - 50;
+            let interval = Math.max(100, baseInterval + jitter);
+            current_rhythm_index += 1;
+            frame++;
+            setTimeout(draw, interval);
+        }
+
+        let frame = 0;
+        draw();
+    </script>
+</body>
+</html>
